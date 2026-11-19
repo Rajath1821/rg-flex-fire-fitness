@@ -39,27 +39,21 @@ export const ContactSection: React.FC = () => {
     }, 5000);
   };
 
-  const coachesData = [
+  const contactPersons = [
     {
       name: 'Sachin R',
       phone: '9964671267',
-      role: 'Head Fitness Coach & Strength Specialist',
-      specialty: 'Powerlifting, Heavy Strength & Biomechanics',
-      badge: 'Coach & Mentor'
+      isOwner: true
     },
     {
       name: 'Kiran R',
       phone: '9164557180',
-      role: 'Senior Conditioning & Transformation Coach',
-      specialty: 'Body Recomposition & Fat Loss Conditioning',
-      badge: 'Coach & Mentor'
+      isOwner: false
     },
     {
       name: 'Krupa Sagar',
       phone: '9148640684',
-      role: 'Functional Mobility & Posture Specialist',
-      specialty: 'Endurance, Core Conditioning & Joint Mobility',
-      badge: 'Coach & Mentor'
+      isOwner: false
     }
   ];
 
@@ -67,62 +61,87 @@ export const ContactSection: React.FC = () => {
     <section id="contact" className="py-20 bg-gym-black relative overflow-hidden border-t border-gym-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-12">
 
-        {/* Section Heading: Changed from Master Trainer to Contact Us */}
+        {/* Section Heading */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gym-card border border-gym-neon/30 text-gym-neon text-xs font-bold tracking-widest uppercase">
             <Phone className="w-3.5 h-3.5" />
-            <span>Official Gym Mentors & Hotline</span>
+            <span>Contact Information</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white uppercase tracking-tight">
             CONTACT <span className="text-transparent bg-clip-text bg-gradient-to-r from-gym-neon via-emerald-400 to-teal-300">US</span>
           </h2>
           <p className="text-slate-400 text-sm sm:text-base">
-            #64, MIG First Floor, Lakshmikant Nagara, Hebbal 1st Stage, Mysore. Call Sachin R, Kiran R, or Krupa Sagar directly, or submit your inquiry below.
+            #64, MIG First Floor, Lakshmikant Nagara, Hebbal 1st Stage, Mysore. Call Sachin R (Owner), Kiran R, or Krupa Sagar directly, or submit your inquiry below.
           </p>
         </div>
 
-        {/* 3 Dedicated Contact Mentors (No pictures of master trainers - Clean luxury contact cards) */}
+        {/* Contact Cards: Display ONLY Name and Phone Number (Sachin R displayed as Owner) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {coachesData.map((coach, index) => (
+          {contactPersons.map((person, index) => (
             <div
               key={index}
-              className="glass-card p-5 rounded-2xl border border-gym-border hover:border-gym-neon/60 transition-all duration-300 flex flex-col justify-between group shadow-lg"
+              className={`glass-card p-6 rounded-2xl border transition-all duration-300 flex flex-col justify-between group shadow-lg ${
+                person.isOwner
+                  ? 'border-gym-neon/60 bg-gradient-to-b from-gym-card via-gym-card to-emerald-950/20 shadow-neon'
+                  : 'border-gym-border hover:border-slate-500'
+              }`}
             >
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-gym-neon/15 border border-gym-neon/40 flex items-center justify-center text-gym-neon group-hover:scale-105 transition-transform">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                    person.isOwner
+                      ? 'bg-gym-neon text-gym-black shadow-neon font-bold'
+                      : 'bg-gym-cardHover text-gym-neon border border-gym-neon/30'
+                  }`}>
                     <User className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-mono font-bold bg-gym-neon/10 text-gym-neon border border-gym-neon/30 px-2 py-0.5 rounded-full">
-                    {coach.badge}
-                  </span>
+
+                  {person.isOwner && (
+                    <span className="text-[10px] font-mono font-extrabold bg-gym-neon text-gym-black uppercase tracking-wider px-3 py-1 rounded-full shadow-neon">
+                      Owner
+                    </span>
+                  )}
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-bold font-heading text-white group-hover:text-gym-neon transition-colors">
-                    {coach.name}
+                  <h3 className="text-xl font-bold font-heading text-white flex items-center gap-2">
+                    <span>{person.name}</span>
+                    {person.isOwner && (
+                      <span className="text-xs font-mono font-bold text-gym-neon uppercase">(Owner)</span>
+                    )}
                   </h3>
-                  <div className="text-xs text-gym-neon font-medium mt-0.5">{coach.role}</div>
-                  <p className="text-xs text-slate-400 mt-1">{coach.specialty}</p>
+
+                  <div className="mt-3">
+                    <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+                      Phone Number
+                    </span>
+                    <a
+                      href={`tel:${person.phone}`}
+                      className="text-lg font-mono font-bold text-gym-neon hover:underline tracking-wide flex items-center gap-2"
+                    >
+                      <Phone className="w-4 h-4 text-gym-neon" />
+                      <span>{person.phone}</span>
+                    </a>
+                  </div>
                 </div>
               </div>
 
               {/* Direct Call & WhatsApp Action Buttons */}
-              <div className="pt-4 mt-4 border-t border-gym-border/60 flex items-center gap-2">
+              <div className="pt-4 mt-5 border-t border-gym-border/60 flex items-center gap-2">
                 <a
-                  href={`tel:${coach.phone}`}
-                  className="flex-1 py-2 px-3 rounded-xl bg-gym-neon text-gym-black font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-neon hover:bg-emerald-400 transition-all"
-                  title={`Call ${coach.name}`}
+                  href={`tel:${person.phone}`}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-gym-neon text-gym-black font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-neon hover:bg-emerald-400 transition-all"
+                  title={`Call ${person.name}`}
                 >
                   <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Call {coach.phone}</span>
+                  <span>Call {person.phone}</span>
                 </a>
                 <a
-                  href={`https://wa.me/91${coach.phone}?text=Hi%20${encodeURIComponent(coach.name)},%20I%20am%20inquiring%20about%20gym%20membership%20at%20RG%20Flex%20Fire%20Fitness%20Mysore.`}
+                  href={`https://wa.me/91${person.phone}?text=Hi%20${encodeURIComponent(person.name)},%20I%20am%20inquiring%20about%20RG%20Flex%20Fire%20Fitness%20Mysore.`}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-2 rounded-xl bg-gym-card hover:bg-emerald-950/40 text-emerald-400 border border-gym-border hover:border-emerald-500/50 transition-colors"
-                  title={`WhatsApp ${coach.name}`}
+                  className="p-2.5 rounded-xl bg-gym-card hover:bg-emerald-950/40 text-emerald-400 border border-gym-border hover:border-emerald-500/50 transition-colors"
+                  title={`WhatsApp ${person.name}`}
                 >
                   <MessageSquare className="w-4 h-4" />
                 </a>
@@ -209,7 +228,7 @@ export const ContactSection: React.FC = () => {
                     MESSAGE TRANSMITTED TO ADMIN DASHBOARD!
                   </h4>
                   <p className="text-xs text-slate-300 max-w-md mx-auto">
-                    Thank you, <strong>{formData.name}</strong>. Your inquiry has been forwarded to Sachin R and Kiran R. We will reach out to you at <strong>{formData.phone}</strong> shortly.
+                    Thank you, <strong>{formData.name}</strong>. Your inquiry has been forwarded to Sachin R (Owner) and Kiran R. We will reach out to you at <strong>{formData.phone}</strong> shortly.
                   </p>
                 </div>
               ) : (

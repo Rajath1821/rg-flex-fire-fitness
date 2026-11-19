@@ -64,13 +64,13 @@ export const MemberLogin: React.FC<MemberLoginProps> = ({ onSuccess, onBackToHom
         <div className="absolute -inset-1 bg-gradient-to-r from-gym-neon to-gym-orange rounded-3xl blur-md opacity-30" />
 
         <div className="relative glass-card bg-gym-darker/95 p-8 sm:p-10 rounded-3xl border border-gym-border shadow-glass">
-          
+
           {/* Header */}
           <div className="text-center space-y-3 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gym-neon to-emerald-600 mx-auto flex items-center justify-center shadow-neon">
               <Flame className="w-8 h-8 text-gym-black stroke-[2.5]" />
             </div>
-            
+
             <h1 className="text-2xl font-extrabold font-heading text-white tracking-wider">
               USER / MEMBER <span className="text-gym-neon">PORTAL</span>
             </h1>

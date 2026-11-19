@@ -181,7 +181,7 @@ export function App() {
               }}
               onGoToMember={() => handleNavigate('user')}
             />
-            <MembershipPlans onSelectPlan={(p) => handleOpenJoinModal(p)} />
+            <MembershipPlans />
             <FacilitiesSection />
             <ContactSection />
             <Footer onNavigate={handleNavigate} />

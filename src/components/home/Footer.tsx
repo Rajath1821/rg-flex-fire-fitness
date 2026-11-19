@@ -40,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               {GYM_CONTACT_INFO.contacts.map((c, i) => (
                 <div key={i} className="flex items-center gap-2 text-slate-300">
                   <span className="text-gym-neon">•</span>
-                  <span>{c.name}:</span>
+                  <span>{c.name}{'role' in c && c.role ? ` (${c.role})` : ''}:</span>
                   <a href={`tel:${c.phone}`} className="font-mono text-gym-neon font-bold hover:underline">{c.phone}</a>
                 </div>
               ))}

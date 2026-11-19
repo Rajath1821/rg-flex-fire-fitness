@@ -5,7 +5,7 @@ export const GYM_CONTACT_INFO = {
   tagline: 'Smart Fitness & Strength Training Hub',
   address: '#64, MIG First Floor, Lakshmikant Nagara, Hebbal 1st Stage, Mysore',
   contacts: [
-    { name: 'Sachin R', phone: '9964671267' },
+    { name: 'Sachin R', phone: '9964671267', role: 'Owner' },
     { name: 'Kiran R', phone: '9164557180' },
     { name: 'Krupa Sagar', phone: '9148640684' }
   ],

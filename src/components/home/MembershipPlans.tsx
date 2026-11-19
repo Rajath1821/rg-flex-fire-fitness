@@ -14,7 +14,7 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
       <div className="absolute bottom-10 left-10 w-80 h-80 bg-gym-orange/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+
         {/* Section Heading */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gym-card border border-gym-neon/30 text-gym-neon text-xs font-bold tracking-widest uppercase">
@@ -38,13 +38,12 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
             return (
               <div
                 key={plan.name}
-                className={`relative rounded-2xl flex flex-col justify-between transition-all duration-300 ${
-                  isPopular
-                    ? 'glass-card border-2 border-gym-neon shadow-neon bg-gradient-to-b from-gym-card via-gym-card to-emerald-950/30'
-                    : isBuddy
+                className={`relative rounded-2xl flex flex-col justify-between transition-all duration-300 ${isPopular
+                  ? 'glass-card border-2 border-gym-neon shadow-neon bg-gradient-to-b from-gym-card via-gym-card to-emerald-950/30'
+                  : isBuddy
                     ? 'glass-card border-2 border-gym-orange shadow-[0_0_20px_rgba(255,94,0,0.3)] bg-gradient-to-b from-gym-card to-amber-950/20'
                     : 'glass-card border border-gym-border hover:border-slate-500 hover:-translate-y-1'
-                }`}
+                  }`}
               >
                 {/* Popular Pill */}
                 {isPopular && (
@@ -70,7 +69,7 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
                     <p className="text-[11px] text-slate-400 mt-1 min-h-[30px]">
                       {plan.tagline}
                     </p>
-                    
+
                     {/* Price in Rupees */}
                     <div className="mt-4 flex items-baseline gap-1">
                       <span className="text-slate-400 text-base font-bold">₹</span>
@@ -100,13 +99,12 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
                 <div className="p-5 pt-0">
                   <button
                     onClick={() => onSelectPlan(plan.name)}
-                    className={`w-full py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
-                      isPopular
-                        ? 'btn-neon'
-                        : isBuddy
+                    className={`w-full py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${isPopular
+                      ? 'btn-neon'
+                      : isBuddy
                         ? 'bg-gym-orange hover:bg-orange-600 text-white shadow-md'
                         : 'bg-gym-cardHover hover:bg-gym-neon text-white hover:text-gym-black border border-slate-700 hover:border-gym-neon'
-                    }`}
+                      }`}
                   >
                     <span>Choose Plan</span>
                     <ArrowRight className="w-3.5 h-3.5" />
