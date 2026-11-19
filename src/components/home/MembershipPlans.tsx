@@ -1,13 +1,8 @@
 import React from 'react';
 import { GYM_PLANS } from '../../data/mockData';
-import { Check, Flame, ArrowRight, ShieldCheck, Users } from 'lucide-react';
-import { MembershipPlanType } from '../../types';
+import { Check, Flame, ShieldCheck, Users } from 'lucide-react';
 
-interface MembershipPlansProps {
-  onSelectPlan: (plan: MembershipPlanType) => void;
-}
-
-export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }) => {
+export const MembershipPlans: React.FC = () => {
   return (
     <section id="plans" className="py-20 bg-gym-darker relative overflow-hidden border-t border-gym-border/60">
       <div className="absolute top-1/4 right-0 w-80 h-80 bg-gym-neon/10 rounded-full blur-[120px] pointer-events-none" />
@@ -25,11 +20,11 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
             AFFORDABLE <span className="text-transparent bg-clip-text bg-gradient-to-r from-gym-neon via-emerald-400 to-teal-300">FITNESS PACKAGES</span>
           </h2>
           <p className="text-slate-400 text-sm sm:text-base">
-            Transparent pricing in Rupees (₹). Unrestricted equipment access, custom routine charts, and expert spotting by Sachin R, Kiran R & Krupa Sagar.
+            Transparent pricing in Rupees (₹). Unrestricted equipment access, custom routine charts, and expert guidance.
           </p>
         </div>
 
-        {/* 5 Packages Grid */}
+        {/* 5 Packages Grid: Display ONLY Price and Package Details (No Choose Plan option) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 items-stretch">
           {GYM_PLANS.map((plan) => {
             const isPopular = plan.popular;
@@ -38,12 +33,13 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
             return (
               <div
                 key={plan.name}
-                className={`relative rounded-2xl flex flex-col justify-between transition-all duration-300 ${isPopular
-                  ? 'glass-card border-2 border-gym-neon shadow-neon bg-gradient-to-b from-gym-card via-gym-card to-emerald-950/30'
-                  : isBuddy
+                className={`relative rounded-2xl flex flex-col justify-between transition-all duration-300 ${
+                  isPopular
+                    ? 'glass-card border-2 border-gym-neon shadow-neon bg-gradient-to-b from-gym-card via-gym-card to-emerald-950/30'
+                    : isBuddy
                     ? 'glass-card border-2 border-gym-orange shadow-[0_0_20px_rgba(255,94,0,0.3)] bg-gradient-to-b from-gym-card to-amber-950/20'
                     : 'glass-card border border-gym-border hover:border-slate-500 hover:-translate-y-1'
-                  }`}
+                }`}
               >
                 {/* Popular Pill */}
                 {isPopular && (
@@ -83,7 +79,7 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
                   </div>
 
                   {/* Features list */}
-                  <div className="space-y-2.5 mb-5">
+                  <div className="space-y-2.5">
                     {plan.features.map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-xs text-slate-300">
                         <div className="w-3.5 h-3.5 rounded-full bg-gym-neon/20 border border-gym-neon/50 flex items-center justify-center shrink-0 mt-0.5 text-gym-neon">
@@ -93,22 +89,6 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Card Action Button */}
-                <div className="p-5 pt-0">
-                  <button
-                    onClick={() => onSelectPlan(plan.name)}
-                    className={`w-full py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${isPopular
-                      ? 'btn-neon'
-                      : isBuddy
-                        ? 'bg-gym-orange hover:bg-orange-600 text-white shadow-md'
-                        : 'bg-gym-cardHover hover:bg-gym-neon text-white hover:text-gym-black border border-slate-700 hover:border-gym-neon'
-                      }`}
-                  >
-                    <span>Choose Plan</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
 
               </div>
@@ -124,14 +104,14 @@ export const MembershipPlans: React.FC<MembershipPlansProps> = ({ onSelectPlan }
             </div>
             <div>
               <span className="font-bold text-white block text-sm">Need help choosing a plan or want a free trial session?</span>
-              <span className="text-slate-400">Call Sachin R: 9964671267 | Kiran R: 9164557180 | Krupa Sagar: 9148640684</span>
+              <span className="text-slate-400">Call Sachin R (Owner): 9964671267 | Kiran R: 9164557180 | Krupa Sagar: 9148640684</span>
             </div>
           </div>
           <a
             href="#contact"
             className="btn-neon px-5 py-2.5 rounded-xl uppercase font-bold shrink-0 text-xs"
           >
-            Visit Our Gym
+            Contact Us
           </a>
         </div>
 
