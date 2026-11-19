@@ -37,29 +37,18 @@ export function App() {
     const mem = StorageService.getLoggedMember();
     setLoggedMember(mem);
 
-    const handleHashChange = () => {
+    const handleRouteChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'admin' || hash === 'admin-login') {
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+      const route = hash || path;
+
+      if (route === 'admin' || route === 'admin-login' || route === 'admin-dashboard') {
         if (StorageService.isAdminAuthenticated()) {
           setCurrentView('admin-dashboard');
         } else {
           setCurrentView('admin-login');
         }
-      } else if (hash === 'admin-dashboard') {
-        if (StorageService.isAdminAuthenticated()) {
-          setCurrentView('admin-dashboard');
-        } else {
-          setCurrentView('admin-login');
-        }
-      } else if (hash === 'user' || hash === 'member' || hash === 'member-login') {
-        const activeMem = StorageService.getLoggedMember();
-        if (activeMem) {
-          setLoggedMember(activeMem);
-          setCurrentView('member-portal');
-        } else {
-          setCurrentView('member-login');
-        }
-      } else if (hash === 'member-portal') {
+      } else if (route === 'user' || route === 'member' || route === 'member-login' || route === 'member-portal') {
         const activeMem = StorageService.getLoggedMember();
         if (activeMem) {
           setLoggedMember(activeMem);
@@ -72,9 +61,13 @@ export function App() {
       }
     };
 
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    handleRouteChange();
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', handleRouteChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
   }, []);
 
   const handleNavigate = (view: string, sectionId?: string) => {
