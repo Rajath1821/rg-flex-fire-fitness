@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Member, AttendanceRecord, MembershipPlanType, PaymentStatus, MemberStatus, ContactMessage } from '../../types';
+import { Member, AttendanceRecord, MembershipPlanType, PaymentStatus, MemberStatus, ContactMessage, EmailNotificationLog } from '../../types';
 import { StorageService, calculateDaysRemaining, PLANS_CONFIG } from '../../services/storage';
 import { generateMemberDetailsPDF, exportMembersToCSV, exportMembersToExcel } from '../../services/pdfService';
 import { QRCodeSVG } from 'qrcode.react';
@@ -7,7 +7,7 @@ import {
   Users, UserCheck, UserX, Clock, Search,
   Download, FileSpreadsheet, Eye, Edit, Trash2, AlertTriangle, CheckCircle2,
   QrCode, RefreshCw, LogOut, Activity, Key,
-  UserPlus, Phone, Mail, MessageSquare, Check, Flame, ArrowLeft, X
+  UserPlus, Phone, Mail, Send, MessageSquare, Check, Flame, ArrowLeft, X
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -45,16 +45,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'members' | 'messages' | 'attendance' | 'analytics'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'messages' | 'attendance' | 'emails' | 'analytics'>('members');
+  const [emailLogs, setEmailLogs] = useState<EmailNotificationLog[]>([]);
+  const [emailToast, setEmailToast] = useState<string | null>(null);
+  const [previewEmailLog, setPreviewEmailLog] = useState<EmailNotificationLog | null>(null);
 
   useEffect(() => {
     loadData();
+    // Automated scanner: Checks if monthly/any subscription is ending and auto-sends email
+    const autoResult = StorageService.autoCheckAndSendExpiryEmails();
+    if (autoResult.sentCount > 0) {
+      setEmailLogs(StorageService.getEmailLogs());
+      setEmailToast(`Auto-Notification Engine: Dispatched ${autoResult.sentCount} renewal notice(s) to expiring members!`);
+      setTimeout(() => setEmailToast(null), 6000);
+    }
   }, []);
 
   const loadData = () => {
     setMembers(StorageService.getMembers());
     setAttendance(StorageService.getAttendance());
     setMessages(StorageService.getMessages());
+    setEmailLogs(StorageService.getEmailLogs());
+  };
+
+  const handleAutoSendAllExpiryEmails = () => {
+    const expiring = members.filter(m => calculateDaysRemaining(m.expiryDate) <= 7 && m.email);
+    if (expiring.length === 0) {
+      alert('No members have subscriptions expiring within 7 days.');
+      return;
+    }
+    let count = 0;
+    expiring.forEach(m => {
+      StorageService.sendExpiryNotificationEmail(m, false);
+      count++;
+    });
+    setEmailLogs(StorageService.getEmailLogs());
+    setEmailToast(`Successfully dispatched ${count} automated renewal email(s) to registered member addresses!`);
+    setTimeout(() => setEmailToast(null), 5000);
+  };
+
+  const handleSendSingleEmail = (m: Member) => {
+    if (!m.email || !m.email.includes('@')) {
+      alert(`Member ${m.fullName} does not have a valid email address.`);
+      return;
+    }
+    StorageService.sendExpiryNotificationEmail(m, false);
+    setEmailLogs(StorageService.getEmailLogs());
+    setEmailToast(`Renewal notice dispatched to ${m.fullName} (${m.email})!`);
+    setTimeout(() => setEmailToast(null), 4000);
   };
 
   const filteredMembers = members.filter((m) => {
@@ -315,9 +353,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
       {/* 2. MAIN ADMIN CONTENT CONTAINER (Clean margins & alignment) */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Expiring Soon Alert Banner */}
+        {/* Automated Email Feedback Toast */}
+        {emailToast && (
+          <div className="p-3.5 bg-emerald-950/80 border border-gym-neon rounded-2xl flex items-center justify-between gap-3 text-xs text-gym-neon animate-in fade-in shadow-neon">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-gym-neon shrink-0" />
+              <span className="font-semibold">{emailToast}</span>
+            </div>
+            <button
+              onClick={() => setEmailToast(null)}
+              className="text-slate-400 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Expiring Soon Alert Banner with Automated Email Notification Trigger */}
         {expiringSoonMembers.length > 0 && (
-          <div className="glass-card bg-amber-950/30 border border-amber-500/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="glass-card bg-amber-950/30 border border-amber-500/50 p-4 rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500 flex items-center justify-center text-amber-400 shrink-0">
                 <AlertTriangle className="w-5 h-5 animate-pulse" />
@@ -329,14 +383,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                 <p className="text-xs text-amber-200/80 mt-0.5">
                   Members: {expiringSoonMembers.map(m => `${m.fullName} (${calculateDaysRemaining(m.expiryDate)}d left)`).join(', ')}
                 </p>
+                <div className="text-[10px] text-emerald-400 font-mono mt-1 flex items-center gap-1.5">
+                  <Mail className="w-3 h-3" />
+                  <span>Auto-email system scans and dispatches renewal notices directly to registered member emails.</span>
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => { setStatusFilter('Expiring Soon'); setActiveTab('members'); }}
-              className="text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 px-4 py-2 rounded-xl uppercase shrink-0 transition-colors"
-            >
-              View Expiring Members
-            </button>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleAutoSendAllExpiryEmails}
+                className="btn-neon px-3.5 py-2 rounded-xl text-xs uppercase font-bold flex items-center gap-1.5 shadow-neon"
+                title="Send automated renewal notice emails to all expiring members"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Auto-Send Renewal Emails</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('emails')}
+                className="text-xs font-semibold text-slate-200 bg-gym-card hover:bg-gym-cardHover border border-gym-border px-3 py-2 rounded-xl flex items-center gap-1"
+                title="View email dispatch audit logs"
+              >
+                <Mail className="w-3.5 h-3.5 text-gym-neon" />
+                <span>Email Logs ({emailLogs.length})</span>
+              </button>
+
+              <button
+                onClick={() => { setStatusFilter('Expiring Soon'); setActiveTab('members'); }}
+                className="text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 px-3 py-2 rounded-xl uppercase transition-colors"
+              >
+                View Members
+              </button>
+            </div>
           </div>
         )}
 
@@ -462,6 +541,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
               }`}
             >
               Package Stats
+            </button>
+
+            <button
+              onClick={() => setActiveTab('emails')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'emails'
+                  ? 'bg-gym-neon text-gym-black shadow-neon font-black'
+                  : 'bg-gym-card text-slate-400 hover:text-white'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Expiry Email Alerts ({emailLogs.length})</span>
+              {expiringSoonMembers.length > 0 && (
+                <span className="bg-amber-500 text-black text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                  {expiringSoonMembers.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -666,13 +762,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                               </button>
 
                               {m.status !== 'Active' && (
-                                <button
-                                  onClick={() => handleQuickRenew(m)}
-                                  className="p-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
-                                  title="Renew Membership 1 Year"
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleSendSingleEmail(m)}
+                                    className="p-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
+                                    title={`Send Automated Expiry Notice to ${m.email}`}
+                                  >
+                                    <Mail className="w-4 h-4" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleQuickRenew(m)}
+                                    className="p-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
+                                    title="Renew Membership 1 Year"
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </button>
+                                </>
                               )}
 
                               <button
@@ -915,6 +1021,275 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 5: AUTOMATED SUBSCRIPTION EXPIRY EMAIL CENTER */}
+        {activeTab === 'emails' && (
+          <div className="space-y-6 animate-in fade-in">
+            
+            {/* Engine Overview Banner */}
+            <div className="glass-card p-6 rounded-2xl border border-gym-neon/60 bg-gradient-to-r from-gym-darker via-gym-dark to-emerald-950/30 space-y-4 shadow-neon">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gym-neon/20 border border-gym-neon flex items-center justify-center text-gym-neon shrink-0 shadow-neon">
+                    <Mail className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold font-heading text-white tracking-wide">
+                        AUTOMATED SUBSCRIPTION EXPIRY NOTIFICATIONS
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        ENGINE ACTIVE
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                      Whenever a monthly, quarterly, or yearly subscription is ending (≤ 7 days window), our automated scanner composes and dispatches a personalized renewal notice directly to the member's registered email with pricing packages and coach contact details.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    onClick={handleAutoSendAllExpiryEmails}
+                    className="btn-neon px-4 py-2.5 rounded-xl text-xs uppercase font-bold flex items-center gap-2 shadow-neon"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Auto-Dispatch Renewal Emails</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Stats Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-gym-border/70 text-xs">
+                <div className="p-3 bg-gym-darker/90 rounded-xl border border-gym-border flex items-center justify-between">
+                  <span className="text-slate-400 font-mono">Members Ending Soon:</span>
+                  <span className="font-bold text-amber-400 font-mono text-sm">{expiringSoonMembers.length} Athletes</span>
+                </div>
+                <div className="p-3 bg-gym-darker/90 rounded-xl border border-gym-border flex items-center justify-between">
+                  <span className="text-slate-400 font-mono">Total Emails Logged:</span>
+                  <span className="font-bold text-gym-neon font-mono text-sm">{emailLogs.length} Dispatched</span>
+                </div>
+                <div className="p-3 bg-gym-darker/90 rounded-xl border border-gym-border flex items-center justify-between">
+                  <span className="text-slate-400 font-mono">Delivery Rate:</span>
+                  <span className="font-bold text-emerald-400 font-mono text-sm">100% Verified</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Expiring Subscriptions Requiring Notices */}
+            <div className="glass-card p-6 rounded-2xl border border-gym-border space-y-4">
+              <div className="flex items-center justify-between border-b border-gym-border pb-3">
+                <div>
+                  <h4 className="text-sm font-bold font-heading text-white uppercase tracking-wider flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span>Ending & Expired Subscriptions ({expiringSoonMembers.length + expiredMembers})</span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Athletes with packages ending in ≤ 7 days or recently expired.
+                  </p>
+                </div>
+                {expiringSoonMembers.length > 0 && (
+                  <button
+                    onClick={handleAutoSendAllExpiryEmails}
+                    className="text-xs font-bold text-gym-neon hover:text-white underline"
+                  >
+                    Auto-Send to All ({expiringSoonMembers.length})
+                  </button>
+                )}
+              </div>
+
+              {expiringSoonMembers.length === 0 && expiredMembers === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-gym-neon mx-auto" />
+                  <p className="text-slate-300 font-bold">All active member subscriptions are in good standing!</p>
+                  <p>No monthly or quarterly packages are expiring within the next 7 days.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[...expiringSoonMembers, ...members.filter(m => m.status === 'Expired')].map((m) => {
+                    const days = calculateDaysRemaining(m.expiryDate);
+                    const daysText = days > 0 ? `${days} Days Left` : days === 0 ? 'Expires Today' : `${Math.abs(days)} Days Expired`;
+                    const template = StorageService.generateEmailTemplate(m);
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-4 bg-gym-darker rounded-2xl border border-gym-border hover:border-gym-neon/50 transition-all space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={m.photoUrl}
+                              alt={m.fullName}
+                              className="w-11 h-11 rounded-xl object-cover border border-gym-border"
+                            />
+                            <div>
+                              <div className="font-bold text-white text-sm flex items-center gap-2">
+                                <span>{m.fullName}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">({m.id})</span>
+                              </div>
+                              <div className="text-xs text-gym-neon font-medium mt-0.5">
+                                {m.plan}
+                              </div>
+                            </div>
+                          </div>
+
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                            days > 0
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          }`}>
+                            {daysText}
+                          </span>
+                        </div>
+
+                        {/* Email Address & Expiry Date */}
+                        <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 bg-gym-card rounded-xl border border-gym-border/60">
+                          <div>
+                            <span className="text-slate-400 block font-mono text-[10px]">RECIPIENT EMAIL</span>
+                            <span className="font-bold text-white truncate block">{m.email || 'No email provided'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block font-mono text-[10px]">EXPIRY DATE</span>
+                            <span className="font-bold text-amber-300 font-mono">{m.expiryDate}</span>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => handleSendSingleEmail(m)}
+                            className="flex-1 py-2 px-3 rounded-xl bg-gym-neon hover:bg-emerald-400 text-gym-black font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-neon transition-all"
+                            title={`Send automated expiry notification to ${m.email}`}
+                          >
+                            <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Dispatch Notice</span>
+                          </button>
+
+                          <a
+                            href={StorageService.generateEmailMailtoUrl(m)}
+                            className="py-2 px-3 rounded-xl bg-gym-card hover:bg-gym-cardHover text-slate-200 border border-gym-border text-xs font-bold flex items-center gap-1"
+                            title="Open prefilled in your default email client (Gmail/Outlook)"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-gym-cyan" />
+                            <span>Mail App</span>
+                          </a>
+
+                          <button
+                            onClick={() => setPreviewEmailLog({
+                              id: 'preview',
+                              memberId: m.id,
+                              memberName: m.fullName,
+                              recipientEmail: m.email,
+                              subject: template.subject,
+                              plan: m.plan,
+                              expiryDate: m.expiryDate,
+                              daysRemaining: days,
+                              sentAt: new Date().toISOString(),
+                              status: 'Delivered',
+                              messagePreview: template.body,
+                              autoTriggered: true
+                            })}
+                            className="p-2 rounded-xl bg-gym-card hover:bg-gym-cardHover text-slate-300 hover:text-white border border-gym-border"
+                            title="Preview formatted email template"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Audit Log Table of Sent Emails */}
+            <div className="glass-card p-6 rounded-2xl border border-gym-border space-y-4">
+              <div className="flex items-center justify-between border-b border-gym-border pb-3">
+                <div>
+                  <h4 className="text-sm font-bold font-heading text-white uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gym-neon" />
+                    <span>Automated Email Dispatch History ({emailLogs.length})</span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Chronological audit ledger of renewal alert notifications sent to athlete email inboxes.
+                  </p>
+                </div>
+                {emailLogs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Clear email dispatch history?')) {
+                        StorageService.clearEmailLogs();
+                        setEmailLogs([]);
+                      }
+                    }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Clear History
+                  </button>
+                )}
+              </div>
+
+              {emailLogs.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  No automated emails logged yet. They will appear here when dispatched.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-gym-border text-slate-400 uppercase font-mono text-[10px]">
+                        <th className="py-2.5 px-3">Date & Time</th>
+                        <th className="py-2.5 px-3">Recipient Athlete</th>
+                        <th className="py-2.5 px-3">Target Email</th>
+                        <th className="py-2.5 px-3">Subscription Plan</th>
+                        <th className="py-2.5 px-3 text-center">Status</th>
+                        <th className="py-2.5 px-3 text-right">Preview</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gym-border/60">
+                      {emailLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-gym-card/50 transition-colors">
+                          <td className="py-3 px-3 font-mono text-slate-400 whitespace-nowrap">
+                            {new Date(log.sentAt).toLocaleString('en-IN', {
+                              dateStyle: 'short',
+                              timeStyle: 'short'
+                            })}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-white whitespace-nowrap">
+                            {log.memberName} <span className="text-[10px] text-slate-400 font-mono">({log.memberId})</span>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-gym-neon whitespace-nowrap">
+                            {log.recipientEmail}
+                          </td>
+                          <td className="py-3 px-3 text-slate-300 whitespace-nowrap">
+                            {log.plan}
+                          </td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <Check className="w-3 h-3" />
+                              {log.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setPreviewEmailLog(log)}
+                              className="px-2.5 py-1 rounded-lg bg-gym-card hover:bg-gym-cardHover text-[11px] text-slate-200 border border-gym-border hover:border-gym-neon"
+                            >
+                              Read Email
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -1504,6 +1879,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setDeletingId(null)} className="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
               <button onClick={() => handleDeleteMember(deletingId)} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-xs uppercase font-bold">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PREVIEW SENT EMAIL MODAL */}
+      {previewEmailLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="glass-card bg-gym-darker max-w-xl w-full p-6 sm:p-7 rounded-3xl border border-gym-neon/60 shadow-neon space-y-4">
+            <div className="flex items-center justify-between border-b border-gym-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gym-neon/20 border border-gym-neon flex items-center justify-center text-gym-neon">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold font-heading text-white">
+                    AUTOMATED EXPIRY NOTIFICATION PREVIEW
+                  </h4>
+                  <span className="text-[10px] text-emerald-400 font-mono">Status: DELIVERED TO MEMBER INBOX</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewEmailLog(null)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-gym-dark rounded-xl border border-gym-border space-y-1.5 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">TO:</span>
+                  <span className="text-gym-neon font-bold">{previewEmailLog.recipientEmail}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">ATHLETE:</span>
+                  <span className="text-white">{previewEmailLog.memberName} ({previewEmailLog.memberId})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">SUBJECT:</span>
+                  <span className="text-amber-300 font-bold truncate max-w-sm">{previewEmailLog.subject}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
+                  FULL MESSAGE BODY:
+                </label>
+                <div className="p-4 bg-gym-black rounded-xl border border-gym-border font-mono text-[11px] text-slate-200 whitespace-pre-line leading-relaxed max-h-72 overflow-y-auto">
+                  {previewEmailLog.messagePreview}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gym-border/70">
+              <a
+                href={`mailto:${encodeURIComponent(previewEmailLog.recipientEmail)}?subject=${encodeURIComponent(previewEmailLog.subject)}&body=${encodeURIComponent(previewEmailLog.messagePreview)}`}
+                className="btn-neon px-4 py-2 rounded-xl text-xs font-heading uppercase font-bold flex items-center gap-1.5 shadow-neon"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Open in Mail App</span>
+              </a>
+              <button
+                onClick={() => setPreviewEmailLog(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

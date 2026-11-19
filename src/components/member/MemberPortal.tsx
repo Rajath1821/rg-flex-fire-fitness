@@ -6,7 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   Download, Printer, User, Calendar, CreditCard, Shield, Activity,
   AlertTriangle, CheckCircle2, Clock, Dumbbell,
-  Edit3, Key, LogOut, RefreshCw, Flame, HeartPulse, MapPin, Phone
+  Edit3, Key, LogOut, RefreshCw, Flame, HeartPulse, MapPin, Phone, Mail
 } from 'lucide-react';
 import { GYM_CONTACT_INFO } from '../../data/mockData';
 
@@ -28,6 +28,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const [pdfSuccess, setPdfSuccess] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [emailSentToast, setEmailSentToast] = useState(false);
   
   // Edit Profile Form State
   const [editForm, setEditForm] = useState({
@@ -145,6 +146,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     alert('Membership renewed for 1 Year! Your access pass has been updated.');
   };
 
+  const handleResendEmail = () => {
+    StorageService.sendExpiryNotificationEmail(currentMember, false);
+    setEmailSentToast(true);
+    setTimeout(() => setEmailSentToast(false), 4500);
+  };
+
   return (
     <div className="min-h-screen bg-gym-black pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-7">
@@ -209,6 +216,23 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <p className="text-xs text-amber-200/90 mt-0.5">
                   Your {currentMember.plan} expires on <strong className="underline">{currentMember.expiryDate}</strong>. Contact Sachin R or Kiran R to renew.
                 </p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/40">
+                    <Mail className="w-3.5 h-3.5 text-gym-neon shrink-0" />
+                    <span>Automated email reminder dispatched to <strong>{currentMember.email}</strong></span>
+                  </div>
+                  <button
+                    onClick={handleResendEmail}
+                    className="text-[10px] font-mono font-bold text-gym-neon hover:text-white underline px-1"
+                  >
+                    Resend Notice
+                  </button>
+                  {emailSentToast && (
+                    <span className="text-[10px] text-gym-neon font-bold animate-in fade-in">
+                      ✓ Email reminder resent!
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button

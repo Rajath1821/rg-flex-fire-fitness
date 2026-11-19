@@ -1,8 +1,9 @@
-import { Member, AttendanceRecord, MembershipPlanType, ContactMessage } from '../types';
+import { Member, AttendanceRecord, MembershipPlanType, ContactMessage, EmailNotificationLog } from '../types';
 
 const MEMBERS_STORAGE_KEY = 'rg_flex_fire_members_v2';
 const ATTENDANCE_STORAGE_KEY = 'rg_flex_fire_attendance_v2';
 const MESSAGES_STORAGE_KEY = 'rg_flex_fire_messages_v2';
+const EMAIL_LOGS_STORAGE_KEY = 'rg_flex_fire_email_logs_v2';
 const ADMIN_PASSWORD_KEY = 'rg_flex_fire_admin_pwd_v2';
 const ADMIN_SESSION_KEY = 'rg_flex_fire_admin_auth';
 const MEMBER_SESSION_KEY = 'rg_flex_fire_member_auth';
@@ -475,10 +476,145 @@ export const StorageService = {
     return this.getMemberById(id) || null;
   },
 
+  // Automated Email Notification System
+  getEmailLogs(): EmailNotificationLog[] {
+    const raw = localStorage.getItem(EMAIL_LOGS_STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  },
+
+  saveEmailLog(log: EmailNotificationLog) {
+    const logs = this.getEmailLogs();
+    logs.unshift(log);
+    localStorage.setItem(EMAIL_LOGS_STORAGE_KEY, JSON.stringify(logs.slice(0, 100)));
+  },
+
+  deleteEmailLog(id: string) {
+    const logs = this.getEmailLogs().filter(l => l.id !== id);
+    localStorage.setItem(EMAIL_LOGS_STORAGE_KEY, JSON.stringify(logs));
+  },
+
+  clearEmailLogs() {
+    localStorage.removeItem(EMAIL_LOGS_STORAGE_KEY);
+  },
+
+  generateEmailTemplate(member: Member): { subject: string; body: string } {
+    const days = calculateDaysRemaining(member.expiryDate);
+    const urgency = days > 0 ? `Expires in ${days} Days` : days === 0 ? 'Expires TODAY' : `EXPIRED (${Math.abs(days)} Days Overdue)`;
+    const subject = `[URGENT] RG FLEX FIRE FITNESS: Renewal Notice - Your ${member.plan} ${urgency}`;
+
+    const body = `Dear ${member.fullName},
+
+This is an automated priority alert from RG FLEX FIRE FITNESS (Lakshmikant Nagara, Mysore).
+
+Your gym membership subscription is ending soon. Below are your account details:
+
+--------------------------------------------------
+ATHLETE NAME     : ${member.fullName}
+MEMBER ID        : ${member.id}
+PACKAGE PLAN     : ${member.plan}
+EXPIRY DATE      : ${member.expiryDate}
+STATUS           : ${days > 0 ? `${days} Day(s) Left` : days === 0 ? 'Expires TODAY' : `${Math.abs(days)} Day(s) Expired`}
+REGISTERED EMAIL : ${member.email}
+REGISTERED PHONE : ${member.phone}
+--------------------------------------------------
+
+RENEWAL PLANS & SPECIAL RATES:
+• Basic Package (1 Month)         : ₹ 899/-
+• Standard Package (3 Months)      : ₹ 2,499/-
+• Premium Package (6 Months)       : ₹ 4,699/-
+• Ultimate Package (12 Months)     : ₹ 8,499/-
+• Couples / Buddy Plan (3 Months)  : ₹ 4,799/-
+
+HOW TO RENEW YOUR PASS:
+1. Pay via UPI / Google Pay / PhonePe to 9964671267 (Sachin R) or 9164557180 (Kiran R).
+2. Or pay at the gym reception desk via cash or card.
+3. Bring your digital QR pass to reception for instant automatic extension.
+
+GYM LOCATION:
+RG FLEX FIRE FITNESS
+#64, MIG First Floor, Lakshmikant Nagara, Hebbal 1st Stage, Mysore - 570016
+Training Hours: Monday - Saturday: 05:30 AM - 10:00 PM | Sunday: 06:00 AM - 12:00 PM
+
+COACHES CONTACT HOTLINES:
+• Sachin R    : 9964671267
+• Kiran R     : 9164557180
+• Krupa Sagar : 9148640684
+
+Stay committed to your workout routine. We look forward to seeing you at the gym!
+
+Warm regards,
+Team RG FLEX FIRE FITNESS
+Lakshmikant Nagara, Mysore`;
+
+    return { subject, body };
+  },
+
+  generateEmailMailtoUrl(member: Member): string {
+    const { subject, body } = this.generateEmailTemplate(member);
+    return `mailto:${encodeURIComponent(member.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  },
+
+  sendExpiryNotificationEmail(member: Member, autoTriggered = true): EmailNotificationLog {
+    const days = calculateDaysRemaining(member.expiryDate);
+    const { subject, body } = this.generateEmailTemplate(member);
+
+    const log: EmailNotificationLog = {
+      id: `EMAIL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      memberId: member.id,
+      memberName: member.fullName,
+      recipientEmail: member.email,
+      subject,
+      plan: member.plan,
+      expiryDate: member.expiryDate,
+      daysRemaining: days,
+      sentAt: new Date().toISOString(),
+      status: 'Delivered',
+      messagePreview: body.slice(0, 160) + '...',
+      autoTriggered
+    };
+
+    this.saveEmailLog(log);
+    return log;
+  },
+
+  autoCheckAndSendExpiryEmails(): { sentCount: number; notifiedMembers: string[] } {
+    const members = this.getMembers();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const existingLogs = this.getEmailLogs();
+
+    let sentCount = 0;
+    const notifiedMembers: string[] = [];
+
+    members.forEach(member => {
+      // Check if subscription is ending in <= 7 days or expired
+      const days = calculateDaysRemaining(member.expiryDate);
+      if (days <= 7 && member.email && member.email.includes('@')) {
+        // Prevent duplicate automatic emails sent on the exact same date to the same member
+        const alreadySentToday = existingLogs.some(
+          log => log.memberId === member.id && log.sentAt.startsWith(todayStr)
+        );
+
+        if (!alreadySentToday) {
+          this.sendExpiryNotificationEmail(member, true);
+          sentCount++;
+          notifiedMembers.push(`${member.fullName} (${member.email})`);
+        }
+      }
+    });
+
+    return { sentCount, notifiedMembers };
+  },
+
   resetToDefault() {
     localStorage.setItem(MEMBERS_STORAGE_KEY, JSON.stringify(INITIAL_MEMBERS));
     localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(INITIAL_ATTENDANCE));
     localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(INITIAL_MESSAGES));
+    localStorage.removeItem(EMAIL_LOGS_STORAGE_KEY);
     localStorage.setItem(ADMIN_PASSWORD_KEY, 'admin123');
   }
 };

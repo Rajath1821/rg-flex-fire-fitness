@@ -104,3 +104,18 @@ export interface Testimonial {
   rating: number;
   transformation: string;
 }
+
+export interface EmailNotificationLog {
+  id: string;
+  memberId: string;
+  memberName: string;
+  recipientEmail: string;
+  subject: string;
+  plan: string;
+  expiryDate: string;
+  daysRemaining: number;
+  sentAt: string;
+  status: 'Delivered' | 'Sent' | 'Failed';
+  messagePreview: string;
+  autoTriggered: boolean;
+}
