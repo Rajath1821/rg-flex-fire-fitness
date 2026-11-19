@@ -8,8 +8,9 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToHome }) => {
+  const currentAdminUser = StorageService.getAdminUsername();
   const currentAdminPass = StorageService.getAdminPassword();
-  const [username, setUsername] = useState('admin@rgflexfire.com');
+  const [username, setUsername] = useState(currentAdminUser);
   const [password, setPassword] = useState(currentAdminPass);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -18,19 +19,20 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onBackToHome 
     e.preventDefault();
     setError('');
 
-    const validUsernames = ['admin', 'admin@rgflexfire.com', 'sachin', 'kiran', 'admin@gymforge.com'];
+    const configuredUser = StorageService.getAdminUsername().trim().toLowerCase();
+    const validUsernames = ['admin', 'admin@rgflexfire.com', 'sachin', 'kiran', configuredUser];
     const activePass = StorageService.getAdminPassword();
 
     if (validUsernames.includes(username.trim().toLowerCase()) && password === activePass) {
       StorageService.setAdminSession(true);
       onSuccess();
     } else {
-      setError(`Invalid Administrator credentials. Active default password is: "${activePass}".`);
+      setError(`Invalid Administrator credentials. Please check your username and password.`);
     }
   };
 
   const handleFillDemo = () => {
-    setUsername('admin@rgflexfire.com');
+    setUsername(StorageService.getAdminUsername());
     setPassword(StorageService.getAdminPassword());
     setError('');
   };

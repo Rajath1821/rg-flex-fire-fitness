@@ -31,7 +31,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
   const [scannerOpen, setScannerOpen] = useState(false);
   const [adminPasswordModalOpen, setAdminPasswordModalOpen] = useState(false);
 
-  // Admin Change Password Form State
+  // Admin Change Credentials Form State (Username & Password)
+  const [adminNewUser, setAdminNewUser] = useState(StorageService.getAdminUsername());
   const [adminOldPass, setAdminOldPass] = useState('');
   const [adminNewPass, setAdminNewPass] = useState('');
   const [adminConfirmPass, setAdminConfirmPass] = useState('');
@@ -100,6 +101,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
     const matchesSearch = !query ||
       m.fullName.toLowerCase().includes(query) ||
       m.id.toLowerCase().includes(query) ||
+      (m.username && m.username.toLowerCase().includes(query)) ||
       m.phone.toLowerCase().includes(query) ||
       m.email.toLowerCase().includes(query);
 
@@ -142,6 +144,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
     paymentStatus: 'Paid' as PaymentStatus,
     medicalNotes: '',
     fitnessGoals: '',
+    username: '',
     password: 'member123'
   };
 
@@ -164,6 +167,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
     e.preventDefault();
     if (!regForm.fullName || !regForm.phone) {
       alert('Please fill in required fields (Name, Phone Number).');
+      return;
+    }
+
+    const chosenUsername = (
+      regForm.username ||
+      regForm.fullName.toLowerCase().replace(/[^a-z0-9_]/g, '') ||
+      `athlete_${Date.now().toString().slice(-4)}`
+    ).trim().toLowerCase();
+
+    // Check username uniqueness
+    const existing = StorageService.getMembers().find(
+      m => m.username && m.username.toLowerCase() === chosenUsername
+    );
+    if (existing) {
+      alert(`Username "${chosenUsername}" is already taken by another athlete (${existing.fullName}). Please choose another.`);
+      return;
+    }
+
+    if (regForm.password && regForm.password.trim().length < 6) {
+      alert('Initial password must be at least 6 characters long.');
       return;
     }
 
@@ -190,23 +213,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
       paymentStatus: regForm.paymentStatus,
       medicalNotes: regForm.medicalNotes,
       fitnessGoals: regForm.fitnessGoals,
+      username: chosenUsername,
       password: regForm.password || 'member123'
     });
 
     loadData();
     setRegisterModalOpen(false);
     setRegForm(initialFormState);
-    alert(`Member Registered Successfully!\nAssigned Member ID: ${newMember.id}`);
+    alert(`Member Registered Successfully!\nAssigned Member ID: ${newMember.id}\nUsername: @${newMember.username}\nPortal Password: ${newMember.password}`);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember) return;
 
+    if (editingMember.username) {
+      const cleanUser = editingMember.username.trim().toLowerCase();
+      if (cleanUser.length < 3) {
+        alert('Member username must be at least 3 characters.');
+        return;
+      }
+      const collision = StorageService.getMembers().find(
+        m => m.id !== editingMember.id && m.username && m.username.toLowerCase() === cleanUser
+      );
+      if (collision) {
+        alert(`Username "${cleanUser}" is already taken by ${collision.fullName} (${collision.id}). Please assign a unique username.`);
+        return;
+      }
+      editingMember.username = cleanUser;
+    }
+
+    if (editingMember.password && editingMember.password.trim().length < 6) {
+      alert('Password must be at least 6 characters.');
+      return;
+    }
+
     StorageService.updateMember(editingMember);
     loadData();
     setEditModalOpen(false);
     setEditingMember(null);
+    alert(`Member ${editingMember.fullName} updated successfully!`);
   };
 
   const handleDeleteMember = (id: string) => {
@@ -240,16 +286,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
     loadData();
   };
 
-  const handleAdminPasswordSubmit = (e: React.FormEvent) => {
+  const handleAdminCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAdminPassMsg({ text: '', isError: false });
 
-    if (adminNewPass !== adminConfirmPass) {
+    if (adminNewPass && adminNewPass !== adminConfirmPass) {
       setAdminPassMsg({ text: 'New passwords do not match.', isError: true });
       return;
     }
 
-    const res = StorageService.updateAdminPassword(adminOldPass, adminNewPass);
+    const res = StorageService.updateAdminCredentials(
+      adminOldPass,
+      adminNewUser.trim() || undefined,
+      adminNewPass.trim() || undefined
+    );
     if (!res.success) {
       setAdminPassMsg({ text: res.message, isError: true });
     } else {
@@ -276,11 +326,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
   return (
     <div className="min-h-screen bg-gym-black text-slate-100 flex flex-col font-sans">
-      
+
       {/* 1. DEDICATED TOP ADMIN NAVBAR (Cleanly aligned, standalone) */}
       <header className="sticky top-0 z-40 bg-gym-darker/95 backdrop-blur-md border-b border-gym-border/80 px-4 sm:px-6 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          
+
           {/* Left Brand & Return link */}
           <div className="flex items-center gap-4">
             <button
@@ -314,12 +364,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => { setAdminPasswordModalOpen(true); setAdminPassMsg({ text: '', isError: false }); }}
+              onClick={() => {
+                setAdminNewUser(StorageService.getAdminUsername());
+                setAdminOldPass('');
+                setAdminNewPass('');
+                setAdminConfirmPass('');
+                setAdminPassMsg({ text: '', isError: false });
+                setAdminPasswordModalOpen(true);
+              }}
               className="px-3 py-2 rounded-xl bg-gym-card hover:bg-gym-cardHover text-xs font-semibold text-slate-200 border border-gym-border hover:border-slate-500 flex items-center gap-1.5 transition-all"
-              title="Update Admin master password"
+              title="Change Admin Username and Password"
             >
               <Key className="w-3.5 h-3.5 text-gym-cyan" />
-              <span className="hidden sm:inline">Change Password</span>
+              <span className="hidden sm:inline">Admin Credentials</span>
             </button>
 
             <button
@@ -421,7 +478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
         {/* Overview KPI Cards (Aligned 6-Column Responsive Grid) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
-          
+
           <div className="glass-card p-4 rounded-2xl border border-gym-border flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-[10px] uppercase font-mono font-bold">Total Athletes</span>
@@ -490,27 +547,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
         {/* Toolbar: Navigation Tabs & Global Export Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gym-border pb-3">
-          
+
           {/* Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto">
             <button
               onClick={() => setActiveTab('members')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${
-                activeTab === 'members'
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${activeTab === 'members'
                   ? 'bg-gym-neon text-gym-black shadow-neon font-black'
                   : 'bg-gym-card text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               Athletes Management ({members.length})
             </button>
 
             <button
               onClick={() => setActiveTab('messages')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'messages'
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === 'messages'
                   ? 'bg-gym-neon text-gym-black shadow-neon font-black'
                   : 'bg-gym-card text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>User Messages ({messages.length})</span>
@@ -523,33 +578,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
             <button
               onClick={() => setActiveTab('attendance')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${
-                activeTab === 'attendance'
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${activeTab === 'attendance'
                   ? 'bg-gym-neon text-gym-black shadow-neon font-black'
                   : 'bg-gym-card text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               Turnstile Attendance ({attendance.length})
             </button>
 
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${
-                activeTab === 'analytics'
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all ${activeTab === 'analytics'
                   ? 'bg-gym-neon text-gym-black shadow-neon font-black'
                   : 'bg-gym-card text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               Package Stats
             </button>
 
             <button
               onClick={() => setActiveTab('emails')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'emails'
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-heading uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === 'emails'
                   ? 'bg-gym-neon text-gym-black shadow-neon font-black'
                   : 'bg-gym-card text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Expiry Email Alerts ({emailLogs.length})</span>
@@ -600,10 +652,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
         {/* TAB 1: ATHLETES MANAGEMENT TABLE */}
         {activeTab === 'members' && (
           <div className="space-y-4">
-            
+
             {/* Search and Filters Bar */}
             <div className="glass-card p-3.5 rounded-2xl border border-gym-border flex flex-wrap items-center justify-between gap-3">
-              
+
               {/* Search Bar */}
               <div className="relative flex-1 min-w-[240px]">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -630,11 +682,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                      statusFilter === st
+                    className={`px-3 py-1.5 rounded-lg font-medium transition-all ${statusFilter === st
                         ? 'bg-gym-cardHover text-gym-neon border border-gym-neon/50 font-bold'
                         : 'text-slate-400 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {st}
                   </button>
@@ -679,7 +730,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                     {filteredMembers.length > 0 ? (
                       filteredMembers.map((m) => (
                         <tr key={m.id} className="hover:bg-gym-cardHover/40 transition-colors group">
-                          
+
                           {/* Athlete Info */}
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-3">
@@ -700,8 +751,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                           </td>
 
                           {/* Member ID */}
-                          <td className="px-4 py-3.5 font-mono font-bold text-gym-neon whitespace-nowrap">
-                            {m.id}
+                          <td className="px-4 py-3.5 font-mono whitespace-nowrap">
+                            <div className="font-bold text-gym-neon">{m.id}</div>
+                            {m.username && (
+                              <div className="text-[10px] text-purple-400 font-semibold">@{m.username}</div>
+                            )}
                           </td>
 
                           {/* Package */}
@@ -720,24 +774,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
                           {/* Payment */}
                           <td className="px-4 py-3.5 whitespace-nowrap">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                              m.paymentStatus === 'Paid'
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${m.paymentStatus === 'Paid'
                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                                 : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                            }`}>
+                              }`}>
                               {m.paymentStatus}
                             </span>
                           </td>
 
                           {/* Status */}
                           <td className="px-4 py-3.5 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${
-                              m.status === 'Active'
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider ${m.status === 'Active'
                                 ? 'bg-gym-neon/15 text-gym-neon border border-gym-neon/30'
                                 : m.status === 'Expiring Soon'
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
-                                : 'bg-red-500/20 text-red-400 border border-red-500/40'
-                            }`}>
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
+                                  : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                              }`}>
                               {m.status}
                             </span>
                           </td>
@@ -839,11 +891,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                 messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`glass-card p-5 rounded-2xl border transition-all ${
-                      msg.read
+                    className={`glass-card p-5 rounded-2xl border transition-all ${msg.read
                         ? 'border-gym-border/80 bg-gym-card/40'
                         : 'border-gym-neon/60 bg-gym-card/90 shadow-[0_0_15px_rgba(0,255,102,0.15)]'
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gym-border/60 pb-3 mb-3">
                       <div className="flex items-center gap-3">
@@ -979,7 +1030,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="glass-card p-6 rounded-2xl border border-gym-border space-y-4">
               <h3 className="text-base font-bold font-heading text-white">RG FLEX FIRE PACKAGE DISTRIBUTION</h3>
-              
+
               <div className="space-y-3">
                 {(Object.keys(PLANS_CONFIG) as MembershipPlanType[]).map((planName) => {
                   const count = members.filter(m => m.plan === planName).length;
@@ -1027,7 +1078,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
         {/* TAB 5: AUTOMATED SUBSCRIPTION EXPIRY EMAIL CENTER */}
         {activeTab === 'emails' && (
           <div className="space-y-6 animate-in fade-in">
-            
+
             {/* Engine Overview Banner */}
             <div className="glass-card p-6 rounded-2xl border border-gym-neon/60 bg-gradient-to-r from-gym-darker via-gym-dark to-emerald-950/30 space-y-4 shadow-neon">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1137,11 +1188,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                             </div>
                           </div>
 
-                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                            days > 0
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${days > 0
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                               : 'bg-red-500/20 text-red-300 border border-red-500/40'
-                          }`}>
+                            }`}>
                             {daysText}
                           </span>
                         </div>
@@ -1295,31 +1345,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
       </div>
 
-      {/* CHANGE ADMIN PASSWORD MODAL */}
+      {/* CHANGE ADMIN USERNAME & PASSWORD MODAL */}
       {adminPasswordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="glass-card bg-gym-darker max-w-sm w-full p-6 sm:p-7 rounded-3xl border border-gym-cyan/50 shadow-cyan space-y-4">
             <div className="flex items-center justify-between border-b border-gym-border pb-3">
               <h3 className="text-base font-bold font-heading text-white flex items-center gap-2">
                 <Key className="w-4 h-4 text-gym-cyan" />
-                <span>CHANGE ADMIN PASSWORD</span>
+                <span>ADMIN USERNAME & PASSWORD</span>
               </h3>
               <button onClick={() => setAdminPasswordModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
             {adminPassMsg.text && (
-              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                adminPassMsg.isError ? 'bg-red-500/10 text-red-300 border border-red-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
-              }`}>
+              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${adminPassMsg.isError ? 'bg-red-500/10 text-red-300 border border-red-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                }`}>
                 {adminPassMsg.isError ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                 <span>{adminPassMsg.text}</span>
               </div>
             )}
 
-            <form onSubmit={handleAdminPasswordSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleAdminCredentialsSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  Current Admin Password
+                  Admin Login Username / Email
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. admin@rgflexfire.com or sachin_admin"
+                  value={adminNewUser}
+                  onChange={(e) => setAdminNewUser(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
+                  Current Admin Password *
                 </label>
                 <input
                   type="password"
@@ -1333,31 +1396,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
 
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  New Admin Password (min 6 chars)
+                  New Admin Password (leave empty to keep current)
                 </label>
                 <input
                   type="password"
-                  required
-                  placeholder="Enter new password"
+                  placeholder="Enter new password (optional)"
                   value={adminNewPass}
                   onChange={(e) => setAdminNewPass(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs"
                 />
               </div>
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Confirm new password"
-                  value={adminConfirmPass}
-                  onChange={(e) => setAdminConfirmPass(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs"
-                />
-              </div>
+              {adminNewPass && (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Confirm new password"
+                    value={adminConfirmPass}
+                    onChange={(e) => setAdminConfirmPass(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs"
+                  />
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -1371,7 +1435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                   type="submit"
                   className="btn-neon px-5 py-2 rounded-xl uppercase font-bold"
                 >
-                  Update Password
+                  Save Credentials
                 </button>
               </div>
             </form>
@@ -1383,7 +1447,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
       {registerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="glass-card bg-gym-darker max-w-3xl w-full p-6 sm:p-8 rounded-3xl border border-gym-neon/50 shadow-neon space-y-5 max-h-[92vh] overflow-y-auto">
-            
+
             <div className="flex items-center justify-between border-b border-gym-border pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gym-neon flex items-center justify-center font-black text-gym-black shadow-neon">
@@ -1402,7 +1466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
             </div>
 
             <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
-              
+
               {/* Row 1: ID & Avatar */}
               <div className="p-4 bg-gym-card rounded-2xl border border-gym-border flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
@@ -1620,6 +1684,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                 </div>
               </div>
 
+              {/* Member Login Credentials */}
+              <div className="space-y-3">
+                <span className="text-[11px] font-bold uppercase font-mono text-purple-400 block border-b border-gym-border/60 pb-1">
+                  4. Member Portal Credentials (Username & Password)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-300 uppercase block mb-1">
+                      Member Username (Unique Login ID)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. madhugowda"
+                      value={regForm.username}
+                      onChange={(e) => setRegForm({ ...regForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                      className="w-full px-3.5 py-2.5 rounded-xl glass-input font-mono"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-1">If blank, auto-generated from full name.</span>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-300 uppercase block mb-1">
+                      Initial Password *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="member123"
+                      value={regForm.password}
+                      onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl glass-input font-mono"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-1">Member can log in and change this anytime.</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-gym-border">
                 <button
                   type="button"
@@ -1729,6 +1831,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
                 </div>
               </div>
 
+              {/* Member Portal Login Credentials (Admin Control) */}
+              <div className="p-3.5 bg-gym-card/60 rounded-2xl border border-purple-500/30 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Key className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-[11px] font-bold font-mono text-purple-300 uppercase tracking-wider">
+                    Member Portal Credentials (Admin Control)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-300 uppercase block mb-1">
+                      Member Username
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. rohangowda"
+                      value={editingMember.username || ''}
+                      onChange={(e) => setEditingMember({
+                        ...editingMember,
+                        username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                      })}
+                      className="w-full px-3 py-2 rounded-xl glass-input font-mono"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Used for athlete portal login</span>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-300 uppercase block mb-1">
+                      Reset Password
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter new password"
+                      value={editingMember.password || ''}
+                      onChange={(e) => setEditingMember({
+                        ...editingMember,
+                        password: e.target.value
+                      })}
+                      className="w-full px-3 py-2 rounded-xl glass-input font-mono"
+                    />
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Min 6 characters</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -1772,6 +1920,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
               <div className="p-2.5 bg-gym-card rounded-xl">
                 <span className="text-[10px] text-slate-400 font-mono block">Status</span>
                 <span className="font-bold text-gym-neon uppercase">{viewMemberModal.status}</span>
+              </div>
+              <div className="p-2.5 bg-gym-card rounded-xl">
+                <span className="text-[10px] text-slate-400 font-mono block">Portal Username</span>
+                <span className="font-bold font-mono text-purple-400">@{viewMemberModal.username || 'Not set'}</span>
+              </div>
+              <div className="p-2.5 bg-gym-card rounded-xl">
+                <span className="text-[10px] text-slate-400 font-mono block">Portal Password</span>
+                <span className="font-mono text-slate-200 font-semibold">{viewMemberModal.password || 'member123'}</span>
               </div>
               <div className="p-2.5 bg-gym-card rounded-xl">
                 <span className="text-[10px] text-slate-400 font-mono block">Validity</span>
@@ -1819,9 +1975,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onNavi
             </div>
 
             {scanResult && (
-              <div className={`p-4 rounded-xl text-xs space-y-1 ${
-                scanResult.success ? 'bg-emerald-950/70 border border-emerald-500/80 text-emerald-300' : 'bg-red-950/70 border border-red-500/80 text-red-300'
-              }`}>
+              <div className={`p-4 rounded-xl text-xs space-y-1 ${scanResult.success ? 'bg-emerald-950/70 border border-emerald-500/80 text-emerald-300' : 'bg-red-950/70 border border-red-500/80 text-red-300'
+                }`}>
                 <div className="font-bold font-heading text-sm">{scanResult.success ? 'TURNSTILE UNLOCKED' : 'ACCESS DENIED'}</div>
                 <p>{scanResult.message}</p>
               </div>

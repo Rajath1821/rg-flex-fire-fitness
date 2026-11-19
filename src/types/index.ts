@@ -18,6 +18,7 @@ export interface EmergencyContact {
 export interface Member {
   id: string; // e.g. "RG-2024-001"
   fullName: string;
+  username?: string; // Member portal login username
   photoUrl: string;
   dob: string;
   gender: 'Male' | 'Female' | 'Other';

@@ -22,7 +22,7 @@ export const MemberLogin: React.FC<MemberLoginProps> = ({ onSuccess, onBackToHom
     const member = StorageService.findMemberByCredential(identifier);
 
     if (!member) {
-      setError('No member account found with this Phone, Email, or Member ID.');
+      setError('No member account found with this Username, Phone, Email, or Member ID.');
       return;
     }
 
@@ -89,14 +89,14 @@ export const MemberLogin: React.FC<MemberLoginProps> = ({ onSuccess, onBackToHom
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-1.5">
               <label className="text-xs uppercase font-bold text-slate-300 font-mono tracking-wider">
-                Phone Number, Email, or Member ID
+                Username, Phone, Email, or Member ID
               </label>
               <input
                 type="text"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. 9964671267 or RG-2024-001"
+                placeholder="e.g. rohangowda, 9964671267, or RG-2024-001"
                 className="w-full px-4 py-3 rounded-xl glass-input text-sm font-medium"
               />
             </div>

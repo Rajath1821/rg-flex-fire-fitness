@@ -42,7 +42,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     fitnessGoals: currentMember.fitnessGoals || ''
   });
 
-  // Change Password Form State (Requested for User)
+  // Change Credentials Form State (Username & Password for User)
+  const [userNewUsername, setUserNewUsername] = useState(currentMember.username || '');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -93,8 +94,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     setEditProfileOpen(false);
   };
 
-  // Change Password for User
-  const handleChangePassword = (e: React.FormEvent) => {
+  // Change Username & Password for User
+  const handleChangeCredentials = (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordMsg({ text: '', isError: false });
 
@@ -103,21 +104,43 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       return;
     }
 
-    if (newPassword.length < 6) {
+    const cleanUser = userNewUsername.trim().toLowerCase();
+    if (cleanUser && cleanUser.length < 3) {
+      setPasswordMsg({ text: 'Username must be at least 3 characters.', isError: true });
+      return;
+    }
+
+    // Check if username is already taken by another athlete
+    if (cleanUser && cleanUser !== (currentMember.username || '').toLowerCase()) {
+      const existing = StorageService.getMembers().find(
+        m => m.id !== currentMember.id && m.username && m.username.toLowerCase() === cleanUser
+      );
+      if (existing) {
+        setPasswordMsg({ text: `Username "${cleanUser}" is already taken by another athlete.`, isError: true });
+        return;
+      }
+    }
+
+    if (newPassword && newPassword.length < 6) {
       setPasswordMsg({ text: 'New password must be at least 6 characters.', isError: true });
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (newPassword && newPassword !== confirmPassword) {
       setPasswordMsg({ text: 'New passwords do not match.', isError: true });
       return;
     }
 
-    const updated = { ...currentMember, password: newPassword };
+    const updated: Member = {
+      ...currentMember,
+      username: cleanUser || currentMember.username,
+      password: newPassword ? newPassword : currentMember.password
+    };
+
     StorageService.updateMember(updated);
     setCurrentMember(updated);
     onMemberUpdated(updated);
-    setPasswordMsg({ text: 'Password successfully updated!', isError: false });
+    setPasswordMsg({ text: 'Username & Password successfully updated!', isError: false });
     setTimeout(() => {
       setChangePasswordOpen(false);
       setOldPassword('');
@@ -183,13 +206,20 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               <span>Edit Details</span>
             </button>
 
-            {/* Change User Password Trigger */}
+            {/* Change Username & Password Trigger */}
             <button
-              onClick={() => setChangePasswordOpen(true)}
+              onClick={() => {
+                setUserNewUsername(currentMember.username || '');
+                setOldPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+                setPasswordMsg({ text: '', isError: false });
+                setChangePasswordOpen(true);
+              }}
               className="px-3.5 py-1.5 rounded-xl bg-gym-card hover:bg-gym-cardHover text-xs font-semibold text-slate-200 border border-gym-border hover:border-slate-500 flex items-center gap-1.5 transition-all"
             >
               <Key className="w-3.5 h-3.5 text-gym-cyan" />
-              <span>Change Password</span>
+              <span>Username & Password</span>
             </button>
 
             <button
@@ -275,6 +305,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   <span className="bg-gym-cardHover text-gym-neon text-xs font-mono font-bold px-2.5 py-1 rounded-lg border border-gym-neon/30">
                     {currentMember.id}
                   </span>
+                  {currentMember.username && (
+                    <span className="bg-purple-900/40 text-purple-300 text-xs font-mono font-bold px-2.5 py-1 rounded-lg border border-purple-500/40">
+                      @{currentMember.username}
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-xs sm:text-sm text-slate-300 font-medium">
@@ -537,14 +572,14 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
       </div>
 
-      {/* CHANGE USER PASSWORD MODAL */}
+      {/* CHANGE USERNAME & PASSWORD MODAL */}
       {changePasswordOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="glass-card bg-gym-darker max-w-sm w-full p-6 rounded-2xl border border-gym-neon/40 shadow-neon space-y-4">
             <div className="flex items-center justify-between border-b border-gym-border pb-3">
               <h3 className="text-base font-bold font-heading text-white flex items-center gap-2">
                 <Key className="w-4 h-4 text-gym-cyan" />
-                <span>CHANGE MEMBER PASSWORD</span>
+                <span>USERNAME & PASSWORD</span>
               </h3>
               <button onClick={() => setChangePasswordOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
@@ -558,10 +593,27 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+            <form onSubmit={handleChangeCredentials} className="space-y-3 text-xs">
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  Current Password
+                  Portal Login Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={userNewUsername}
+                  onChange={(e) => setUserNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="e.g. rohangowda"
+                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Letters, numbers, and underscores (min 3 chars).
+                </span>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
+                  Current Password *
                 </label>
                 <input
                   type="password"
@@ -575,11 +627,10 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
 
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  New Password (min 6 chars)
+                  New Password (leave empty to keep current)
                 </label>
                 <input
                   type="password"
-                  required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
@@ -587,19 +638,21 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs"
-                />
-              </div>
+              {newPassword && (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-300 font-mono block mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs"
+                  />
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -613,7 +666,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   type="submit"
                   className="btn-neon px-4 py-2 rounded-xl uppercase font-bold"
                 >
-                  Update Password
+                  Save Credentials
                 </button>
               </div>
             </form>

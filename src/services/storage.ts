@@ -5,6 +5,7 @@ const ATTENDANCE_STORAGE_KEY = 'rg_flex_fire_attendance_v2';
 const MESSAGES_STORAGE_KEY = 'rg_flex_fire_messages_v2';
 const EMAIL_LOGS_STORAGE_KEY = 'rg_flex_fire_email_logs_v2';
 const ADMIN_PASSWORD_KEY = 'rg_flex_fire_admin_pwd_v2';
+const ADMIN_USERNAME_KEY = 'rg_flex_fire_admin_user_v2';
 const ADMIN_SESSION_KEY = 'rg_flex_fire_admin_auth';
 const MEMBER_SESSION_KEY = 'rg_flex_fire_member_auth';
 
@@ -50,6 +51,7 @@ const INITIAL_MEMBERS: Member[] = [
   {
     id: 'RG-2024-001',
     fullName: 'Rohan Gowda',
+    username: 'rohangowda',
     photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
     dob: '1998-05-14',
     gender: 'Male',
@@ -79,6 +81,7 @@ const INITIAL_MEMBERS: Member[] = [
   {
     id: 'RG-2024-002',
     fullName: 'Ananya Sharma',
+    username: 'ananyasharma',
     photoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80',
     dob: '2000-08-22',
     gender: 'Female',
@@ -108,6 +111,7 @@ const INITIAL_MEMBERS: Member[] = [
   {
     id: 'RG-2024-003',
     fullName: 'Darshan Kumar & Priya',
+    username: 'darshankumar',
     photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
     dob: '1995-11-03',
     gender: 'Male',
@@ -137,6 +141,7 @@ const INITIAL_MEMBERS: Member[] = [
   {
     id: 'RG-2024-004',
     fullName: 'Karthik Rao',
+    username: 'karthikrao',
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
     dob: '1992-03-19',
     gender: 'Male',
@@ -254,8 +259,9 @@ export const StorageService = {
     const clean = query.trim().toLowerCase();
     return this.getMembers().find(
       m => m.id.toLowerCase() === clean ||
-           m.email.toLowerCase() === clean ||
-           m.phone.replace(/\D/g, '') === clean.replace(/\D/g, '')
+        m.email.toLowerCase() === clean ||
+        (m.username && m.username.toLowerCase() === clean) ||
+        m.phone.replace(/\D/g, '') === clean.replace(/\D/g, '')
     );
   },
 
@@ -432,21 +438,71 @@ export const StorageService = {
     localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages));
   },
 
-  // Admin Password Management
+  // Admin Credentials Management (Username & Password)
+  getAdminUsername(): string {
+    return localStorage.getItem(ADMIN_USERNAME_KEY) || 'admin@rgflexfire.com';
+  },
+
   getAdminPassword(): string {
     return localStorage.getItem(ADMIN_PASSWORD_KEY) || 'admin123';
   },
 
-  updateAdminPassword(oldPass: string, newPass: string): { success: boolean; message: string } {
+  updateAdminCredentials(oldPass: string, newUsername?: string, newPass?: string): { success: boolean; message: string } {
     const current = this.getAdminPassword();
     if (oldPass !== current) {
       return { success: false, message: 'Current Admin password is incorrect.' };
     }
-    if (newPass.length < 6) {
-      return { success: false, message: 'New password must be at least 6 characters.' };
+    if (newUsername !== undefined) {
+      const cleanUser = newUsername.trim();
+      if (cleanUser.length < 3) {
+        return { success: false, message: 'Admin username must be at least 3 characters.' };
+      }
+      localStorage.setItem(ADMIN_USERNAME_KEY, cleanUser);
     }
-    localStorage.setItem(ADMIN_PASSWORD_KEY, newPass);
-    return { success: true, message: 'Admin password successfully updated!' };
+    if (newPass !== undefined && newPass.trim() !== '') {
+      if (newPass.length < 6) {
+        return { success: false, message: 'New password must be at least 6 characters.' };
+      }
+      localStorage.setItem(ADMIN_PASSWORD_KEY, newPass);
+    }
+    return { success: true, message: 'Admin credentials successfully updated!' };
+  },
+
+  updateAdminPassword(oldPass: string, newPass: string): { success: boolean; message: string } {
+    return this.updateAdminCredentials(oldPass, undefined, newPass);
+  },
+
+  // Member Credentials Management (Username & Password)
+  updateMemberCredentials(memberId: string, newUsername?: string, newPassword?: string): { success: boolean; message: string } {
+    const member = this.getMemberById(memberId);
+    if (!member) {
+      return { success: false, message: 'Member record not found.' };
+    }
+
+    if (newUsername !== undefined) {
+      const clean = newUsername.trim().toLowerCase();
+      if (clean.length < 3) {
+        return { success: false, message: 'Username must be at least 3 characters.' };
+      }
+      // Check uniqueness among other members
+      const existing = this.getMembers().find(
+        m => m.id !== memberId && m.username && m.username.toLowerCase() === clean
+      );
+      if (existing) {
+        return { success: false, message: `Username "${clean}" is already taken by another athlete.` };
+      }
+      member.username = clean;
+    }
+
+    if (newPassword !== undefined && newPassword.trim() !== '') {
+      if (newPassword.length < 6) {
+        return { success: false, message: 'Password must be at least 6 characters.' };
+      }
+      member.password = newPassword;
+    }
+
+    this.updateMember(member);
+    return { success: true, message: 'Member credentials successfully updated!' };
   },
 
   // Auth Session Helpers
@@ -615,6 +671,7 @@ Lakshmikant Nagara, Mysore`;
     localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(INITIAL_ATTENDANCE));
     localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(INITIAL_MESSAGES));
     localStorage.removeItem(EMAIL_LOGS_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_USERNAME_KEY);
     localStorage.setItem(ADMIN_PASSWORD_KEY, 'admin123');
   }
 };
